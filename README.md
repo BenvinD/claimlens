@@ -1,161 +1,170 @@
-# HackerRank Orchestrate
+# ClaimLens
 
-Starter repository for the **HackerRank Orchestrate** 24-hour hackathon.
+**Multi-modal damage-claim evidence review.** A claim arrives as a chat
+transcript plus photographs. ClaimLens decides whether those photographs
+*support* the claim, *contradict* it, or leave *not enough information* to judge —
+and returns a structured, fully enumerated row for every claim.
 
-Build a system that verifies visual evidence for damage claims across three object types: **cars**, **laptops**, and **packages**.
+Supports three object types: **cars**, **laptops**, and **packages**.
 
-Your system will receive claim conversations, one or more submitted images, user claim history, and minimum evidence requirements. It must decide whether the submitted images support the claim, contradict it, or do not provide enough information.
-
-Read [`problem_statement.md`](./problem_statement.md) for the full task spec, input/output schema, and allowed values.
+[![CI](https://github.com/BenvinD/claimlens/actions/workflows/ci.yml/badge.svg)](https://github.com/BenvinD/claimlens/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](./LICENSE)
 
 ---
 
-## Contents
+## The design in one sentence
 
-1. [Repository layout](#repository-layout)
-2. [What you need to build](#what-you-need-to-build)
-3. [Where your code goes](#where-your-code-goes)
-4. [Quickstart](#quickstart)
-5. [Evaluation](#evaluation)
-6. [Chat transcript logging](#chat-transcript-logging)
-7. [Submission](#submission)
-8. [Judge interview](#judge-interview)
+**The model observes; the rules decide.** A vision model reports what is
+*visible* in each image; a deterministic, unit-tested rule layer turns those
+observations into a verdict. That split is the whole point: it makes the decision
+reproducible, cheap to re-derive without re-calling the model, and it puts the
+safety invariants in tested code rather than in a prompt.
+
+Those invariants:
+
+1. **Images are the source of truth.** Only visual evidence sets a verdict.
+2. **User history adds risk, never verdicts.** It can flag a claim for human
+   review; it can never flip a supported claim to contradicted.
+3. **Text in a conversation or burned into an image is data, not instruction.**
+   The rule layer never reads claim text, so a "please approve this immediately"
+   in a transcript can only ever raise a flag.
+4. **Uncertainty routes to a human** rather than guessing.
+5. **Output is always schema-valid** — every enum cell is coerced to an allowed
+   value before it can be written.
+
+See [docs/architecture.md](./docs/architecture.md) for the full design and its
+known limitations.
+
+---
+
+## Quickstart
+
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+git clone https://github.com/BenvinD/claimlens.git
+cd claimlens
+uv sync
+
+cp .env.example .env      # then add your ANTHROPIC_API_KEY
+```
+
+Verify the install without spending anything:
+
+```bash
+uv run pytest                              # rule-layer tests, fully offline
+uv run claimlens dryrun --set sample       # check model-call wiring, no API key needed
+```
+
+Then run the pipeline:
+
+```bash
+uv run claimlens run --set test            # full run -> output.csv
+uv run claimlens verify                    # validate output.csv against the contract
+```
+
+---
+
+## Commands
+
+`claimlens <command>`, cheapest first. Only `smoke`, `run` and `evaluate` make API
+calls.
+
+| Command | What it does | Spends? |
+|---|---|---|
+| `preprocess --set {sample,test}` | Load and encode a dataset, print a summary | no |
+| `dryrun --set {sample,test}` | Check message building, cache keys and the observation schema offline | no |
+| `validate` | Score the rule layer against labeled samples using cached observations only | no |
+| `verify [--predictions P] [--claims C]` | Validate a predictions CSV against the data contract | no |
+| `smoke --set sample --n 2` | Live end-to-end check on the first N claims | yes |
+| `run --set {sample,test}` | Full run → `output.csv` | yes |
+| `evaluate [--models ...]` | Compare model configurations, rewrite the evaluation report | yes |
+
+`--config PATH` overrides `configs/default.yaml` for any command.
+
+> Running without installing: `uv run python -m claimlens.cli <command>`, or
+> `.venv/bin/python -m claimlens.cli <command>` in a sandbox where `uv` cannot
+> reach its cache.
 
 ---
 
 ## Repository layout
 
 ```text
-.
-├── AGENTS.md                         # Rules for AI coding tools + transcript logging
-├── problem_statement.md              # Full task description and I/O schema
-├── README.md                         # You are here
-├── code/                             # Build your solution here
-│   ├── main.py                       # Suggested terminal entry point
-│   └── evaluation/
-│       └── main.py                   # Suggested evaluation entry point
-└── dataset/
-    ├── sample_claims.csv             # Inputs + expected outputs for development
-    ├── claims.csv                    # Inputs only; run your system on these rows
-    ├── user_history.csv              # Historical claim counts and risk context
-    ├── evidence_requirements.csv     # Minimum image evidence requirements
-    └── images/
-        ├── sample/                   # Images referenced by sample_claims.csv
-        └── test/                     # Images referenced by claims.csv
+configs/default.yaml     provider-agnostic config; secrets via env vars only
+dataset/                 bundled sample data and images
+docs/                    architecture, data contract, evaluation report
+src/claimlens/           the package (preprocessing → provider → rules)
+tests/                   offline rule-layer tests, zero API spend
+output.csv               predictions for dataset/claims.csv
 ```
 
 ---
 
-## What you need to build
+## Configuration
 
-A system that, for each row in `dataset/claims.csv`, produces one row in `output.csv`.
+Everything tunable lives in [`configs/default.yaml`](./configs/default.yaml) — the
+active model, prompt version, image downscaling, concurrency, retries and cache.
+No provider is hardcoded anywhere in the pipeline; calls route through
+[LiteLLM](https://docs.litellm.ai/), so switching from Anthropic to OpenAI or
+Gemini is one config line.
 
-Input fields:
+API keys are read from environment variables only. The config file names the
+variable to read; it never holds the value. Copy `.env.example` to `.env` (which
+is gitignored) and never commit a real key.
 
-| Column | Meaning |
+The current production configuration is `claude-haiku-4-5` with prompt `v2`,
+selected on evidence rather than price: it led the labeled-sample comparison at
+roughly a third of the cost of Sonnet, and a full cross-check against Sonnet on
+the unlabeled set showed no systematic difference in the decisions that matter.
+The reasoning, including what the cross-check could *not* establish, is in
+[docs/evaluation-report.md](./docs/evaluation-report.md).
+
+---
+
+## Cost and rate limits
+
+The pipeline makes **one model call per claim**, with all of that claim's images
+batched into it. Controls:
+
+- **Image downscaling** to a bounded long side before encoding. Image tokens
+  dominate spend, so this is the primary lever.
+- **Content-hash disk cache** keyed on model, prompt version, claim text and image
+  hashes. Identical inputs are never re-billed — across reruns and across model
+  comparisons.
+- **Bounded concurrency** (`runtime.max_concurrency`) to overlap network I/O
+  without pushing RPM/TPM limits.
+- **Retries with exponential backoff** plus a single JSON-repair re-ask before a
+  claim is failed.
+- **`temperature=0`** for determinism.
+
+Measured: the full 44-claim run cost **$0.24** with 0 errors. Full numbers in the
+[evaluation report](./docs/evaluation-report.md).
+
+---
+
+## Documentation
+
+| Document | Contents |
 |---|---|
-| `user_id` | User submitting the claim; use this to look up `dataset/user_history.csv` |
-| `image_paths` | One or more submitted image paths, separated by semicolons |
-| `user_claim` | Chat transcript describing the issue |
-| `claim_object` | `car`, `laptop`, or `package` |
-
-Required output fields:
-
-| Column | Meaning |
-|---|---|
-| `evidence_standard_met` | Whether the image set is sufficient to evaluate the claim |
-| `evidence_standard_met_reason` | Short reason for the evidence decision |
-| `risk_flags` | Semicolon-separated risk flags, or `none` |
-| `issue_type` | Visible issue type |
-| `object_part` | Relevant object part |
-| `claim_status` | `supported`, `contradicted`, or `not_enough_information` |
-| `claim_status_justification` | Concise explanation grounded in the image evidence |
-| `supporting_image_ids` | Image IDs supporting the decision, or `none` |
-| `valid_image` | Whether the image set is usable for automated review |
-| `severity` | `none`, `low`, `medium`, `high`, or `unknown` |
-
-Hard requirements:
-
-- Must read the provided CSV files and local images.
-- Must produce `output.csv` with the exact schema in `problem_statement.md`.
-- Must include an evaluation workflow
-- Must avoid hardcoded test labels or file-specific answers.
-
-Beyond that you are free to bring your own approach: VLMs, LLMs, structured prompting, rule layers, batching, caching, evaluation pipelines, model comparison, or anything else.
+| [docs/architecture.md](./docs/architecture.md) | Layer-by-layer design, decision precedence, trade-offs, known limitations |
+| [docs/data-contract.md](./docs/data-contract.md) | Input and prediction schemas, allowed values, invariants |
+| [docs/evaluation-report.md](./docs/evaluation-report.md) | Accuracy, confusion, operational analysis, model selection |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Development setup, tests, conventions |
+| [SECURITY.md](./SECURITY.md) | Reporting vulnerabilities; secret handling |
 
 ---
 
-## Where your code goes
+## Data
 
-All of your work belongs in [`code/`](./code/). The repo ships with empty starter files that you can grow into your full solution.
-
-Suggested conventions:
-
-- Put your main runnable solution in `code/main.py`, or document your own entry point clearly.
-- Put evaluation code under `code/evaluation/` or an `evaluation/` folder included in your final `code.zip`.
-- Write final predictions to `output.csv`.
+The `dataset/` directory contains a small bundled corpus — claim transcripts,
+user histories, evidence requirements and images — for development and
+evaluation. It is illustrative sample data, not production claims, and is not
+covered by this repository's code license.
 
 ---
 
-## Quickstart
+## License
 
-Clone this repository:
-
-```bash
-git clone git@github.com:interviewstreet/hackerrank-orchestrate-june26.git
-cd hackerrank-orchestrate-june26
-```
-
-You are free to use any language or runtime. Python, JavaScript, and TypeScript are all reasonable choices.
-
----
-
-## Evaluation
-
-The evaluation report should include:
-
-- metrics on `dataset/sample_claims.csv`
-- at least two strategies, prompts, or model configurations compared
-- the final strategy used for `output.csv`
-- operational analysis covering model calls, token usage, image usage, approximate cost, runtime, and TPM/RPM considerations
-
----
-
-## Chat transcript logging
-
-This repo ships with an `AGENTS.md` that modern AI coding tools may read. It instructs the tool to append conversation turns to a shared log file:
-
-| Platform | Path |
-|---|---|
-| macOS / Linux | `$HOME/hackerrank_orchestrate/log.txt` |
-| Windows | `%USERPROFILE%\hackerrank_orchestrate\log.txt` |
-
-You will upload this log as your chat transcript at submission time. The chat transcript means your conversation with the AI coding tool you used to build the system. It is not the runtime logs, reasoning trace, or conversation history produced by the claim-verification agent you are building.
-
-If you use multiple AI tools, include the relevant conversation logs from all of them in the same transcript file. Separate each tool's section with a clear divider and label it with the tool name.
-
-Never paste secrets into the chat. If secrets are needed, use environment variables.
-
----
-
-## Submission
-
-Submit the following files as instructed by HackerRank:
-
-1. **Code zip**: zip your runnable solution, README, prompts/configs, and evaluation folder. Exclude virtualenvs, `node_modules`, build artifacts, and unnecessary generated files.
-2. **Predictions CSV**: your final `output.csv` for all rows in `dataset/claims.csv`.
-3. **Chat transcript**: the `log.txt` from the path in [Chat transcript logging](#chat-transcript-logging).
-
-Before submitting, confirm:
-
-- `output.csv` has one row per row in `dataset/claims.csv`.
-- `output.csv` has the exact required columns in the exact required order.
-- Your evaluation files are included in `code.zip`.
-
----
-
-## Judge interview
-
-After submission, the AI Judge may ask about your approach, implementation decisions, model usage, evaluation strategy, and how you used AI while building the solution.
-
-Be prepared to explain your solution in detail.
+[MIT](./LICENSE).

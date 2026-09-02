@@ -1,0 +1,69 @@
+# Provider-agnostic configuration. The active model is selected here; no
+# provider is ever hardcoded in the pipeline. Model calls are routed through
+# LiteLLM, so swapping providers is a config change, not a code change.
+#
+# Secrets are never stored in this file - only the *name* of the environment
+# variable holding each key. See .env.example.
+
+# claude-haiku@v2 is the production configuration: it led the labeled-sample
+# comparison (claim_status 85% vs sonnet 80%) at roughly a third of the cost.
+# See docs/evaluation-report.md.
+active_model: claude-haiku
+
+models:
+  # Primary model: strong vision quality at moderate cost.
+  # Pricing per million tokens (Anthropic API, verified Jun 2026).
+  claude-sonnet:
+    provider: anthropic
+    model: claude-sonnet-4-6
+    api_key_env: ANTHROPIC_API_KEY
+    input_per_mtok: 3.0
+    output_per_mtok: 15.0
+  # Cheaper model, used as the production default and as the comparison
+  # baseline (same provider and key, so no extra setup).
+  claude-haiku:
+    provider: anthropic
+    model: claude-haiku-4-5
+    api_key_env: ANTHROPIC_API_KEY
+    input_per_mtok: 1.0
+    output_per_mtok: 5.0
+  # Other providers are supported by the same code path; add a key to use them.
+  gpt4o:
+    provider: openai
+    model: gpt-4o
+    api_key_env: OPENAI_API_KEY
+  gemini:
+    provider: gemini
+    model: gemini-1.5-pro
+    api_key_env: GEMINI_API_KEY
+
+# Paths are resolved relative to the repository root unless absolute, so the
+# pipeline behaves identically from any working directory.
+paths:
+  dataset_dir: dataset
+  claims_csv: dataset/claims.csv
+  sample_csv: dataset/sample_claims.csv
+  user_history_csv: dataset/user_history.csv
+  evidence_requirements_csv: dataset/evidence_requirements.csv
+  output_csv: output.csv
+
+# Image preprocessing knobs. Downscaling dominates cost control.
+image:
+  max_long_side: 1024
+  jpeg_quality: 85
+  format: JPEG
+
+# Runtime / rate-limit behaviour of the model-calling layer.
+runtime:
+  temperature: 0
+  max_concurrency: 4
+  max_retries: 3
+  request_timeout_s: 90
+
+cache:
+  enabled: true
+  dir: .cache
+
+# v2 adds an anti-confirmation-bias instruction and a strict severity rubric;
+# it beat v1 on the labeled sample (claim_status 80%->85%, severity within-1 90%).
+prompt_version: v2

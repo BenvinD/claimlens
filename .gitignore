@@ -1,19 +1,25 @@
 # Python
 __pycache__/
 *.py[cod]
-.venv/
 *.egg-info/
+build/
+dist/
+.venv/
+venv/
 
-# uv
-# (uv.lock is intentionally committed for reproducibility)
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 
-# Secrets
+# Secrets - never commit real keys; see .env.example
 .env
 .env.*
+!.env.example
 
-# Solution caches / outputs
+# Model-response cache (content-hashed; safe to delete, expensive to rebuild)
 .cache/
-code/.cache/
 
-# OS
+# Editors / OS
+.idea/
 .DS_Store
