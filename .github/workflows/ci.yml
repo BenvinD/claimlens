@@ -26,7 +26,7 @@ jobs:
         python-version: ["3.14"]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           path: claimlens
 
@@ -34,7 +34,7 @@ jobs:
       # resolves it from a sibling directory. CI reproduces that layout rather
       # than special-casing the dependency, so it installs the same way it does
       # on a developer's machine.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           repository: BenvinD/vortex-ai-gateway
           path: vortex-ai-gateway
