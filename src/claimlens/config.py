@@ -23,7 +23,7 @@ class ModelConfig(BaseModel):
     model: str
     api_key_env: str | None = None
     # Authoritative pricing (USD per million tokens). When set, the provider uses
-    # these for cost accounting instead of LiteLLM's built-in table.
+    # these for cost accounting instead of the gateway's built-in price table.
     input_per_mtok: float | None = None
     output_per_mtok: float | None = None
 
@@ -57,6 +57,10 @@ class RuntimeConfig(BaseModel):
     max_concurrency: int = 4
     max_retries: int = 3
     request_timeout_s: int = 90
+    # Anthropic requires an output cap. LiteLLM sent none and let the vendor
+    # default apply; the gateway's adapter would otherwise impose its own 4096,
+    # so the cap is named here rather than inherited from a dependency.
+    max_output_tokens: int = 4096
 
 
 class CacheConfig(BaseModel):

@@ -19,11 +19,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # vortex-ai-gateway pins requires-python >=3.14, which is now the floor
+      # for ClaimLens too. 3.11-3.13 were dropped by that dependency, not by
+      # anything in this repository.
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v5
+        with:
+          path: claimlens
+
+      # vortex-ai-gateway is not published to PyPI, so `[tool.uv.sources]`
+      # resolves it from a sibling directory. CI reproduces that layout rather
+      # than special-casing the dependency, so it installs the same way it does
+      # on a developer's machine.
+      - uses: actions/checkout@v5
+        with:
+          repository: BenvinD/vortex-ai-gateway
+          path: vortex-ai-gateway
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -32,22 +46,31 @@ jobs:
 
       - name: Sync environment
         run: uv sync --frozen --python ${{ matrix.python-version }}
+        working-directory: claimlens
 
       - name: Lint
         run: uv run ruff check --output-format=github .
+        working-directory: claimlens
 
       - name: Format check
         run: uv run ruff format --check .
+        working-directory: claimlens
 
       - name: Tests
         run: uv run pytest -q
+        working-directory: claimlens
 
       # These exercise the real pipeline wiring without any API key or spend.
+      # `dryrun` also guards the import boundary: it must not construct a
+      # gateway, so a regression that boots one on import shows up here.
       - name: Offline provider dryrun
         run: uv run claimlens dryrun --set sample
+        working-directory: claimlens
 
       - name: Preprocess test set
         run: uv run claimlens preprocess --set test
+        working-directory: claimlens
 
       - name: Verify committed predictions against the data contract
         run: uv run claimlens verify
+        working-directory: claimlens

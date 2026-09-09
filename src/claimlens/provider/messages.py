@@ -1,8 +1,10 @@
 """Build vision chat messages from a PreparedClaim, and a content-based cache key.
 
-LiteLLM accepts OpenAI-style multimodal content blocks and normalizes them for
-Anthropic / Gemini under the hood. The ``provider`` argument is kept as an
-explicit hook for the rare per-provider payload tweak.
+The gateway's request contract is OpenAI-shaped, and its adapters translate
+those blocks into each vendor's own format -- an ``image_url`` carrying a
+base64 ``data:`` URI becomes an Anthropic ``image`` block with a decoded
+``media_type``. The ``provider`` argument is kept as an explicit hook for the
+rare per-provider payload tweak.
 """
 
 from __future__ import annotations

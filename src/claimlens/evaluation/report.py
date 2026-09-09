@@ -78,7 +78,7 @@ def _render(runs: list[EvalRun], cfg, test_claims: int, test_images: int, final:
     )
     L.append(
         "System design: pure-Python preprocessing -> one structured VLM call per "
-        "claim (LiteLLM, provider-agnostic) that **observes** each image -> a "
+        "claim (vortex-ai-gateway, provider-agnostic) that **observes** each image -> a "
         "deterministic rule layer that maps observations to the 14 output columns. "
         "Images are the source of truth; user history and authenticity flags add "
         "risk context but never flip a supported decision; in-claim/in-image "

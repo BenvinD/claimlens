@@ -12,7 +12,7 @@ from ..config import Config
 from ..preprocessing import prepare_dataset
 from ..provider import analyze_claims
 from ..provider.base import ProviderResult
-from ..provider.litellm_provider import LiteLLMProvider
+from ..provider.vortex_provider import VortexProvider
 from ..rules import decide
 from ..rules.output import OutputRow
 from .metrics import Metrics, score
@@ -84,7 +84,7 @@ def run_model(
     prepared = prepare_dataset(which, cfg)
     images_total = sum(len(p.usable_images) for p in prepared)
 
-    provider = LiteLLMProvider(cfg, model_name)
+    provider = VortexProvider(cfg, model_name)
     results = analyze_claims(provider, prepared, cfg.runtime.max_concurrency, progress)
     predictions = [decide(p, r.observation) for p, r in zip(prepared, results, strict=True)]
 

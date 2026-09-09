@@ -107,8 +107,13 @@ output.csv               predictions for dataset/claims.csv
 Everything tunable lives in [`configs/default.yaml`](./configs/default.yaml) — the
 active model, prompt version, image downscaling, concurrency, retries and cache.
 No provider is hardcoded anywhere in the pipeline; calls route through
-[LiteLLM](https://docs.litellm.ai/), so switching from Anthropic to OpenAI or
-Gemini is one config line.
+[vortex-ai-gateway](https://github.com/BenvinD/vortex-ai-gateway), so switching
+from Anthropic to OpenAI is one config line. The gateway runs in-process over
+ASGI, so a call passes through its authentication, rate limiter, response cache,
+routing table, per-provider circuit breaker and usage ledger without a second
+service to supervise. Its deployment knobs are the `VORTEX_*` entries in
+`.env.example`; see
+[docs/migration-litellm-to-vortex.md](./docs/migration-litellm-to-vortex.md).
 
 API keys are read from environment variables only. The config file names the
 variable to read; it never holds the value. Copy `.env.example` to `.env` (which

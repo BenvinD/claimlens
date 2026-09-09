@@ -10,7 +10,8 @@ replace.
 ClaimLens decides whether submitted photographs support, contradict, or fail to
 substantiate a damage claim about a car, laptop, or package. Three layers:
 pure-Python preprocessing → one structured vision-model call per claim (via
-LiteLLM) → a deterministic rule layer that produces the output row.
+vortex-ai-gateway, run in-process over ASGI) → a deterministic rule layer that
+produces the output row.
 
 The design constraint that everything else follows from: **the model observes,
 the rules decide.** Read [docs/architecture.md](./docs/architecture.md) before

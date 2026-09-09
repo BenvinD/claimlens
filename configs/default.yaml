@@ -1,6 +1,8 @@
 # Provider-agnostic configuration. The active model is selected here; no
 # provider is ever hardcoded in the pipeline. Model calls are routed through
-# LiteLLM, so swapping providers is a config change, not a code change.
+# vortex-ai-gateway, so swapping providers is a config change, not a code
+# change. The gateway's routing table is derived from the `models` block below:
+# each entry becomes one `<model>=<provider>` rule.
 #
 # Secrets are never stored in this file - only the *name* of the environment
 # variable holding each key. See .env.example.
@@ -32,10 +34,19 @@ models:
     provider: openai
     model: gpt-4o
     api_key_env: OPENAI_API_KEY
-  gemini:
-    provider: gemini
-    model: gemini-1.5-pro
-    api_key_env: GEMINI_API_KEY
+  # Served from our own hardware; the gateway prices `local/*` at zero.
+  # ollama:
+  #   provider: ollama
+  #   model: local/llava
+  #   api_key_env: null
+  #
+  # NOTE: the gateway ships adapters for openai, anthropic and ollama only.
+  # Gemini had no adapter at migration time, so the entry below is commented
+  # out rather than silently unroutable -- see docs/migration-litellm-to-vortex.md.
+  # gemini:
+  #   provider: gemini
+  #   model: gemini-1.5-pro
+  #   api_key_env: GEMINI_API_KEY
 
 # Paths are resolved relative to the repository root unless absolute, so the
 # pipeline behaves identically from any working directory.
@@ -59,6 +70,7 @@ runtime:
   max_concurrency: 4
   max_retries: 3
   request_timeout_s: 90
+  max_output_tokens: 4096
 
 cache:
   enabled: true

@@ -63,7 +63,7 @@ Add an entry to `models:` in `configs/default.yaml` with its `provider`, `model`
 uv run claimlens evaluate --models claude-haiku your-new-model
 ```
 
-Pricing in config overrides LiteLLM's built-in table, so keep it accurate — the
+Pricing in config overrides the gateway's built-in table, so keep it accurate — the
 cost numbers in the evaluation report depend on it.
 
 ## Pull requests

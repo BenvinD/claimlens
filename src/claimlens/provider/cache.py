@@ -32,7 +32,7 @@ class DiskCache:
         try:
             with open(p, encoding="utf-8") as fh:
                 return json.load(fh)
-        except (json.JSONDecodeError, OSError):
+        except json.JSONDecodeError, OSError:
             return None
 
     def set(self, key: str, value: dict) -> None:

@@ -23,8 +23,8 @@ from claimlens.config import load_config
 from claimlens.evaluation import report as report_module
 from claimlens.observation import VLMObservation
 from claimlens.preprocessing import prepare_dataset
-from claimlens.provider.litellm_provider import extract_json
 from claimlens.provider.messages import build_messages, cache_key
+from claimlens.provider.vortex_provider import extract_json
 from claimlens.rules import decide, write_output_csv
 
 
@@ -146,7 +146,7 @@ def cmd_smoke(args: argparse.Namespace) -> int:
     import json as _json
 
     from claimlens.config import REPO_ROOT
-    from claimlens.provider.litellm_provider import LiteLLMProvider
+    from claimlens.provider.vortex_provider import VortexProvider
 
     try:
         from dotenv import load_dotenv
@@ -167,7 +167,7 @@ def cmd_smoke(args: argparse.Namespace) -> int:
     prepared = prepare_dataset(args.set, cfg)[: args.n]
     print(f"running live on {len(prepared)} claim(s)...\n")
 
-    provider = LiteLLMProvider(cfg)
+    provider = VortexProvider(cfg)
     cache_dir = cfg.resolve(cfg.cache.dir)
     before = len(list(cache_dir.glob("*.json"))) if cache_dir.exists() else 0
 
@@ -235,7 +235,7 @@ def _load_env(cfg) -> None:
 def cmd_run(args: argparse.Namespace) -> int:
     """End-to-end: preprocess -> VLM -> rule layer -> output.csv (live API calls)."""
     from claimlens.provider import analyze_claims
-    from claimlens.provider.litellm_provider import LiteLLMProvider
+    from claimlens.provider.vortex_provider import VortexProvider
 
     cfg = load_config(args.config)
     _load_env(cfg)
@@ -247,7 +247,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     prepared = prepare_dataset(args.set, cfg)
     print(f"running {cfg.active_model} on {len(prepared)} {args.set} claim(s)...")
 
-    provider = LiteLLMProvider(cfg)
+    provider = VortexProvider(cfg)
     done = {"n": 0}
 
     def _progress(_idx, res):
@@ -285,14 +285,14 @@ def cmd_validate(args: argparse.Namespace) -> int:
     """Validate the rule layer against labeled sample rows using ONLY cached
     observations (zero new API spend). Rows without a cache hit are skipped."""
     from claimlens.provider.cache import DiskCache
-    from claimlens.provider.litellm_provider import LiteLLMProvider
+    from claimlens.provider.vortex_provider import VortexProvider
 
     cfg = load_config(args.config)
     model_cfg = cfg.active_model_config
     prepared = prepare_dataset("sample", cfg)
     expected = _read_expected(cfg.resolve(cfg.paths.sample_csv))
     cache = DiskCache(cfg.resolve(cfg.cache.dir), enabled=True)
-    provider = LiteLLMProvider(cfg)
+    provider = VortexProvider(cfg)
 
     set_cols = {"risk_flags", "supporting_image_ids"}
     compare_cols = [

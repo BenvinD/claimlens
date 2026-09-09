@@ -23,3 +23,6 @@ venv/
 # Editors / OS
 .idea/
 .DS_Store
+
+# Gateway client-key store (hashed keys, but machine-local).
+.vortex/

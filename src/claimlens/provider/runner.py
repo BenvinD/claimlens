@@ -1,8 +1,10 @@
 """Bounded-concurrency batch runner over claims.
 
-LiteLLM's ``completion`` is blocking I/O, so a thread pool gives real
-concurrency for network-bound calls while a fixed worker count caps RPM/TPM
-pressure. Results are returned in the original claim order.
+``VortexProvider.analyze`` is a blocking call that hands its work to the
+gateway's event loop, so a thread pool gives real concurrency for network-bound
+calls while a fixed worker count caps RPM/TPM pressure -- below the allowance on
+the client key, so the gateway's limiter stays a backstop rather than the thing
+pacing a run. Results are returned in the original claim order.
 """
 
 from __future__ import annotations

@@ -17,7 +17,7 @@ dataset/*.csv + images
         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ 2. provider                 one structured call per claim   │
-│    LiteLLM → any vision model. Returns a factual            │
+│    vortex-ai-gateway → any vision model. Returns a factual  │
 │    VLMObservation ("what is in each image"), never a         │
 │    verdict. Content-hash disk cache, bounded concurrency,    │
 │    retries, one JSON-repair re-ask, Pydantic enum coercion   │
@@ -71,7 +71,7 @@ lag real-world variety. That is the trade made knowingly.
 │   ├── prompts.py               # versioned system/user prompts (v1, v2)
 │   ├── verify.py                # offline predictions-CSV validation
 │   ├── preprocessing/           # CSV loaders, image encoding, join pipeline
-│   ├── provider/                # provider interface, LiteLLM impl, cache, runner
+│   ├── provider/                # provider interface, gateway impl, cache, runner
 │   ├── rules/                   # decision engine + CSV writer
 │   └── evaluation/              # scoring harness, metrics, report renderer
 └── tests/                       # offline rule-layer tests (zero API spend)
@@ -104,11 +104,16 @@ scratch — is the known casualty.
 One call per claim, all of that claim's images batched as content blocks in that
 single call.
 
-- **Provider-agnostic.** Every call goes through `litellm.completion` with a model
-  id built from config as `provider/model`. One OpenAI-style message format works
-  across Anthropic, OpenAI and Gemini, so comparing two models is a config change
+- **Provider-agnostic.** Every call goes through the gateway's OpenAI-compatible
+  `/v1/chat/completions`, naming the bare model id from config; the routing table
+  is derived from the same `models` block. One OpenAI-style message format works
+  across Anthropic, OpenAI and Ollama, so comparing two models is a config change
   rather than a code change. Pricing is overridden in config so cost accounting
   stays authoritative rather than depending on a third-party table.
+- **The gateway is the resilience layer.** Transport retries, per-vendor circuit
+  breakers, fallback chains, rate limiting and the usage ledger live in it, so
+  this repository keeps only the one retry it alone can judge: a JSON reply that
+  did not parse.
 - **Untrusted input is fenced.** The system prompt declares the conversation and
   any in-image text to be data, to be flagged and never obeyed; the user message
   fences the transcript in a delimited block. Fencing is defence in depth, not the
