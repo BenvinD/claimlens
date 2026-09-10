@@ -70,3 +70,43 @@ make check
 That runs tests, lint, format check, the offline dryrun and CSV verification.
 Report the actual output. If something fails or you skipped a step, say so
 plainly rather than describing the intent.
+
+## Harness tooling in this repository
+
+`.claude/` encodes the rules above so they hold without being remembered. It is
+checked in and shared; other AGENTS.md-aware tools should still read this file
+directly, since everything in `.claude/` derives from it.
+
+**Skills** load on their own when the work matches — no need to invoke them:
+
+| Skill | Covers |
+|---|---|
+| `claimlens-architecture` | the three layers, which layer owns a change, the five invariants |
+| `rule-layer` | changing `decide()` test-first without breaking precedence or purity |
+| `prompt-and-cache` | prompt versioning, the cache key, adding a model |
+| `data-contract` | the 14 columns, allowed values, the `enums.py` helpers |
+| `cost-and-secrets` | which commands spend, the free equivalent, `.env` handling |
+
+**Commands** drive the multi-step workflows:
+
+| Command | Does |
+|---|---|
+| `/baseline` | capture the pre-change regression numbers (free) |
+| `/check` | run `make check` and report the real output |
+| `/rule-change` | test-first rule change with a before/after accuracy comparison |
+| `/new-prompt-version` | add a prompt version without invalidating the cache |
+| `/add-model` | add a model to config and compare it on evidence |
+| `/contract-audit` | check `enums.py`, `docs/data-contract.md` and `output.csv` still agree |
+
+**Hooks** enforce the two rules that cost real money or real safety:
+
+- `guard-secrets.py` (PreToolUse) — denies reads of `.env` and deletion of
+  `.cache/`. `.env.example` and heredocs that merely mention the file are fine.
+- `guard-spend.py` (PreToolUse) — turns `claimlens smoke|run|evaluate` into a
+  confirmation prompt, naming the free alternative.
+- `post-edit-python.py` (PostToolUse) — runs `ruff format` on the edited file,
+  feeds `ruff check` findings back, and surfaces the invariant governing the
+  path you just touched (rule layer, prompts, enums, observation, config).
+
+A hook blocking you is not an obstacle to route around: it is one of the rules
+above, arriving at the moment it applies.

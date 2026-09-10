@@ -20,6 +20,9 @@ venv/
 # Model-response cache (content-hashed; safe to delete, expensive to rebuild)
 .cache/
 
+# Personal Claude Code overrides; .claude/settings.json IS shared and committed.
+.claude/settings.local.json
+
 # Editors / OS
 .idea/
 .DS_Store
